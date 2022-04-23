@@ -1,0 +1,9 @@
+{
+    "conf_ver": 1,
+    "vername": "deck",
+    "pandoc": {
+        "deck" :{
+            "win": "pandoc-2.18-windows-x86_64.zip"
+        }
+    }
+}
