@@ -8,29 +8,41 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
+
+	"github.com/jokin1999/markdown-converter/src/mdcass"
 )
 
 // Version
-const VERSION = "0.0.1"
+const VERSION = "0.0.2"
 
-// PANDOC Release URL
-const PANDOC_RELEASE_URL = ""
+// Version Name
+const VERNAME = "deck"
 
-// PANDOC Accelerated Release URL
-const PANDOC_RELEASE_ACC_URL = ""
+// Configuraion File Version
+const CONFVER = 1
+
+// MDC Server
+const MDC_SERVER_DEFAULT = "https://mdc.josark.com"
+const MDC_SERVER_PANDOC = "https://pandoc.mdc.josark.com"
 
 var pandoc_bin string
+var mdc_conf string
 
 // Initializaion
 func init() {
 	// check pandoc binary
 	userhomedir, _ := os.UserHomeDir()
 	mdcdir := userhomedir + "/.mdc"
-	pandoc_bin, _ = filepath.Abs(mdcdir + "/pandoc.exe")
+	pandoc_bin, _ = filepath.Abs(mdcdir + "/pandoc")
+	if runtime.GOOS == "windows" {
+		pandoc_bin += ".exe"
+	}
 	_, err := os.Stat(pandoc_bin)
 	if err != nil || os.IsNotExist(err) {
 		println("!! Pandoc binary does NOT exist or is NOT permitted to access")
+		println("!! Use mdc download to obtain a binary automatically")
 		os.Exit(2)
 	}
 }
@@ -84,6 +96,18 @@ func main() {
 	// if command is help, ignore other params
 	if command == "help" {
 		help()
+		os.Exit(0)
+	}
+
+	// show built-in information
+	if command == "builtin" {
+		builtin()
+		os.Exit(0)
+	}
+
+	// download pandoc binary
+	if command == "download" {
+		mdcass.Download(MDC_SERVER_DEFAULT, MDC_SERVER_PANDOC, VERSION, VERNAME, CONFVER, pandoc_bin)
 		os.Exit(0)
 	}
 
@@ -158,12 +182,40 @@ mdc <COMMAND> [filepath] [-t <template>] [-o <filename>]
 		Convert markdown file to word (.docx).
 	help
 		Show help document.
+	builtin
+		Show built-in information.
+	download [Download Flags]
+		Download pandoc binary from the Internet.
 
-[OTHERS]
+[Flags]
 	-t <template> !!NOT SUPPORT!!
-		Word output only. Generate .docx with a specific template. 
-		Choose a template .docx file path or online reference file 
-		name.
+		Word output only. Generate .docx with a specific 
+		template. Choose a template .docx file path or online 
+		reference file name.
+
+[Download Flags]
+	-m [official mirror site name]
+		Specify a mirror site name for downloading pandoc 
+		binary.
+		If put the mirror site empty, mdc will download from 
+		a default built-in mirror site. ONLY official mirror
+		site name is accept. e.g. default
+	-cm [customized mirror site]
+		Specify a mirror site for downloading pandoc binary.
+		e.g. https://mirror.mdc.sample.com
 `
-	fmt.Printf(helptext)
+	fmt.Println(helptext)
+}
+
+func builtin() {
+	println()
+	println("======================== Built-in Information ========================")
+	println("MDC Version: ", VERSION)
+	println("MDC Vername: ", VERNAME)
+	println("MDC Server : ", MDC_SERVER_DEFAULT)
+	println("MDC PANDOC : ", MDC_SERVER_PANDOC)
+	// println("Mirrors: ")
+	// for k, v := range MDC_SERVERS {
+	// 	println("    ", k, ":", v)
+	// }
 }
