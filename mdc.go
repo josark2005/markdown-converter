@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"io/fs"
 	"io/ioutil"
@@ -25,10 +26,17 @@ const CONFVER = 1
 
 // MDC Server
 const MDC_SERVER_DEFAULT = "https://mdc.josark.com"
-const MDC_SERVER_PANDOC = "https://pandoc.mdc.josark.com"
+const MDC_SERVER_DEV = "https://test.mdc.josark.com"
+
+// const MDC_SERVER_PANDOC = "https://pandoc.mdc.josark.com/2.18"
+//https://github.com/jgm/pandoc/releases/download/2.18/pandoc-2.18-windows-x86_64.zip
+// const MDC_SERVER_PANDOC = "https://ghproxy.com/https://github.com/jgm/pandoc/releases/download/2.18"
+// const MDC_SERVER_PANDOC = "https://markdown-converter-pandoc.onrender.com/2.18"
+const MDC_SERVER_PANDOC = "https://endpoint.fastgit.org/https://github.com/jgm/pandoc/releases/download/2.18"
 
 var pandoc_bin string
-var mdc_conf string
+
+// var mdc_conf string
 
 // Initializaion
 func init() {
@@ -85,88 +93,92 @@ func main() {
 	args := os.Args
 
 	// at least one param should be given
-	if len(args) < 2 || args == nil {
-		help()
+	if len(args) < 2 {
+		println("!! Missing arguments")
 		os.Exit(0)
 	}
 
 	// command or target
 	command := args[1]
 
-	// if command is help, ignore other params
-	if command == "help" {
-		help()
-		os.Exit(0)
-	}
-
-	// show built-in information
-	if command == "builtin" {
-		builtin()
-		os.Exit(0)
-	}
-
-	// download pandoc binary
-	if command == "download" {
-		mdcass.Download(MDC_SERVER_DEFAULT, MDC_SERVER_PANDOC, VERSION, VERNAME, CONFVER, pandoc_bin)
-		os.Exit(0)
-	}
-
-	// generate filepath
-	mdfilepath, _ := filepath.Abs(args[2])
-	mdfilename := filepath.Base(mdfilepath)
-
-	// remove the extension name
-	_filename := strings.Split(mdfilename, ".")
-	_filename = _filename[:len(_filename)-1]
-	mdfilename_noext := strings.Join(_filename, ".")
-
-	var err error
-
-	// show pandoc version
-	output, err := exec.Command(pandoc_bin, "--version").Output()
-	if err != nil {
-		println("!! Error occured when fetching the pandoc version")
-		os.Exit(3)
-	} else {
-		println()
-		println("============================ Pandoc  Info ============================")
-		pandoc_version := strings.Split(string(output), "\n")
-		println(pandoc_version[0])
-		println(pandoc_version[1])
-		println(pandoc_version[2])
-		println(pandoc_version[3])
-		println()
-	}
-
-	// if markdown file is exist
-	_, err = os.Stat(mdfilepath)
-	if err != nil {
-		println("!! markdown file DOES NOT exist")
-		os.Exit(4)
-	}
-
-	// command
 	switch command {
-	case "html":
-		// write result to file
-		md2html_w(mdfilepath, mdfilename_noext+".html", 0644)
-	case "docx", "doc", "word":
-		var err error
-		// convert markdown to html
-		err = md2html_w(mdfilepath, mdfilename_noext+".html", 0644)
-		if err != nil {
-			println("!! Error: ", err.Error())
-			os.Exit(6)
+	case "builtin":
+		builtin()
+	case "download":
+		// TODO Support more arch
+		if runtime.GOARCH != "amd64" {
+			println("!! Support amd64 only")
+			os.Exit(0)
 		}
-		// convert html to docx
-		err = html2docx_w(mdfilename_noext+".html", mdfilename_noext+".docx")
-		if err != nil {
-			println("!! Error: ", err.Error())
-			os.Exit(7)
+		fs_download := flag.NewFlagSet("download", flag.ExitOnError)
+		dev := fs_download.Bool("dev", false, "Switch default server name to 'dev'.")
+		fs_download.Parse(args[2:])
+		if *dev {
+			println(">> ATTENTION: Developing mode")
+			mdcass.Download(MDC_SERVER_DEV, MDC_SERVER_PANDOC, VERSION, VERNAME, CONFVER, pandoc_bin)
+		} else {
+			mdcass.Download(MDC_SERVER_DEFAULT, MDC_SERVER_PANDOC, VERSION, VERNAME, CONFVER, pandoc_bin)
 		}
 	default:
-		help()
+		// generate filepath
+		mdfilepath, _ := filepath.Abs(args[2])
+		mdfilename := filepath.Base(mdfilepath)
+
+		// remove the extension name
+		_filename := strings.Split(mdfilename, ".")
+		_filename = _filename[:len(_filename)-1]
+		mdfilename_noext := strings.Join(_filename, ".")
+
+		var err error
+
+		// show pandoc version
+		output, err := exec.Command(pandoc_bin, "--version").Output()
+		if err != nil {
+			println("!! Error occured when fetching the pandoc version")
+			os.Exit(3)
+		} else {
+			println()
+			println("============================ Pandoc  Info ============================")
+			pandoc_version := strings.Split(string(output), "\n")
+			println(pandoc_version[0])
+			println(pandoc_version[1])
+			println(pandoc_version[2])
+			println(pandoc_version[3])
+			println()
+		}
+
+		// if markdown file is exist
+		_, err = os.Stat(mdfilepath)
+		if err != nil {
+			println("!! markdown file DOES NOT exist")
+			os.Exit(4)
+		}
+
+		// command
+		switch command {
+		case "html":
+			// write result to file
+			md2html_w(mdfilepath, mdfilename_noext+".html", 0644)
+		case "docx", "doc", "word":
+			var err error
+			// convert markdown to html
+			err = md2html_w(mdfilepath, mdfilename_noext+".html", 0644)
+			if err != nil {
+				println("!! Error: ", err.Error())
+				os.Exit(6)
+			}
+			// convert html to docx
+			err = html2docx_w(mdfilename_noext+".html", mdfilename_noext+".docx")
+			if err != nil {
+				println("!! Error: ", err.Error())
+				os.Exit(7)
+			}
+		default:
+			help()
+		}
 	}
+	os.Exit(0)
+
 }
 
 func help() {
