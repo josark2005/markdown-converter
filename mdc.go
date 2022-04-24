@@ -73,10 +73,13 @@ func init() {
 	mdc_localconf, _ = filepath.Abs(mdc_dir + "/" + VERNAME + ".json")
 	// try to read local configuration
 	mdc_conf, err = os.ReadFile(mdc_localconf)
+	if err != nil {
+		println("!! Cannot read local configuration:", mdc_localconf)
+	}
 }
 
 func md2html(md string) string {
-	println("Running: ", pandoc_bin, " -f markdown -t html ", md)
+	println("Running: ", pandoc_bin, "-f markdown -t html", md)
 	output, err := exec.Command(pandoc_bin, "-f", "markdown", "-t", "html", md).Output()
 	if err != nil {
 		fmt.Println("!! Convert failed: ", err)
@@ -101,7 +104,7 @@ func md2html_w(mdfilepath string, filename string, perm fs.FileMode) error {
 }
 
 func html2docx_w(html string, filename string) error {
-	println("Running: ", pandoc_bin, " -f html -t docx ", html, "-o ", filename)
+	println("Running: ", pandoc_bin, "-f html -t docx", html, "-o", filename)
 	_, err := exec.Command(pandoc_bin, "-f", "markdown", "-t", "docx", html, "-o", filename).Output()
 	if err != nil {
 		fmt.Println("!! Convert failed: ", err)
@@ -178,22 +181,6 @@ func main() {
 		mdfilename_noext := strings.Join(_filename, ".")
 
 		var err error
-
-		// show pandoc version
-		output, err := exec.Command(pandoc_bin, "--version").Output()
-		if err != nil {
-			println("!! Error occured when fetching the pandoc version")
-			os.Exit(3)
-		} else {
-			println()
-			println("============================ Pandoc  Info ============================")
-			pandoc_version := strings.Split(string(output), "\n")
-			println(pandoc_version[0])
-			println(pandoc_version[1])
-			println(pandoc_version[2])
-			println(pandoc_version[3])
-			println()
-		}
 
 		// if markdown file is exist
 		_, err = os.Stat(mdfilepath)
