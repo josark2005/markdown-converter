@@ -9,7 +9,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
-	"runtime"
 	"strings"
 
 	"github.com/jokin1999/markdown-converter/src/mdcass"
@@ -25,34 +24,55 @@ const VERNAME = "deck"
 const CONFVER = 1
 
 // MDC Server
+// https://cdn.jsdelivr.net/gh/jokin1999/markdown-converter@0.0.1/
 const MDC_SERVER_DEFAULT = "https://mdc.josark.com"
+const MDC_SERVER_ACC = "https://cdn.jsdelivr.net/gh/jokin1999/markdown-converter"
 const MDC_SERVER_DEV = "https://test.mdc.josark.com"
 
-// const MDC_SERVER_PANDOC = "https://pandoc.mdc.josark.com/2.18"
-//https://github.com/jgm/pandoc/releases/download/2.18/pandoc-2.18-windows-x86_64.zip
-// const MDC_SERVER_PANDOC = "https://ghproxy.com/https://github.com/jgm/pandoc/releases/download/2.18"
-// const MDC_SERVER_PANDOC = "https://markdown-converter-pandoc.onrender.com/2.18"
-const MDC_SERVER_PANDOC = "https://endpoint.fastgit.org/https://github.com/jgm/pandoc/releases/download/2.18"
-
+// Pandoc Command
 var pandoc_bin string
 
-// var mdc_conf string
+// MDC Dir
+var mdc_dir string
+
+// MDC local configuration file
+var mdc_localconf string
+
+// MDC local configuration JSON string
+var mdc_conf []byte
 
 // Initializaion
 func init() {
-	// check pandoc binary
+	pandoc_bin = "pandoc"
 	userhomedir, _ := os.UserHomeDir()
-	mdcdir := userhomedir + "/.mdc"
-	pandoc_bin, _ = filepath.Abs(mdcdir + "/pandoc")
-	if runtime.GOOS == "windows" {
-		pandoc_bin += ".exe"
+	mdc_dir, _ = filepath.Abs(userhomedir + "/.mdc")
+	// check pandoc binary
+	_, err := exec.Command(pandoc_bin, "--version").Output()
+	if err != nil {
+		// try to find pandoc binary in mdc excutable directory
+		execdir, _ := os.Executable()
+		execdir = filepath.Dir(execdir)
+		_, err := os.Stat(execdir + "/pandoc.exe")
+		if err != nil {
+			println("!! Pandoc binary is required.")
+		} else {
+			pandoc_bin = execdir + "/pandoc.exe"
+		}
+
 	}
-	_, err := os.Stat(pandoc_bin)
-	if err != nil || os.IsNotExist(err) {
-		println("!! Pandoc binary does NOT exist or is NOT permitted to access")
-		println("!! Use mdc download to obtain a binary automatically")
-		os.Exit(2)
+	// check MDC DIR
+	localdir, err := os.Stat(mdc_dir)
+	if err != nil || !localdir.IsDir() {
+		println("!! MDC DIR is unreachable. Try to create", mdc_dir)
+		err := os.Mkdir(mdc_dir, 0644)
+		if err != nil {
+			println("!! Failed to create directory", mdc_dir)
+		}
 	}
+	// check local configuration
+	mdc_localconf, _ = filepath.Abs(mdc_dir + "/" + VERNAME + ".json")
+	// try to read local configuration
+	mdc_conf, err = os.ReadFile(mdc_localconf)
 }
 
 func md2html(md string) string {
@@ -104,20 +124,48 @@ func main() {
 	switch command {
 	case "builtin":
 		builtin()
-	case "download":
-		// TODO Support more arch
-		if runtime.GOARCH != "amd64" {
-			println("!! Support amd64 only")
-			os.Exit(0)
-		}
-		fs_download := flag.NewFlagSet("download", flag.ExitOnError)
-		dev := fs_download.Bool("dev", false, "Switch default server name to 'dev'.")
+	case "update":
+		// Update server json
+		fs_download := flag.NewFlagSet("update", flag.ExitOnError)
+		// support dev/acc mode
+		server := fs_download.String("server", "default", "Specify a server. 'acc' and 'dev' are available. \nThe 'acc' server may not have latest files, e.g. templates. \nDO NOT CHOOSE 'dev' SERVER IF YOU DO NOT KNOW WHAT WILL HAPPED.")
 		fs_download.Parse(args[2:])
-		if *dev {
-			println(">> ATTENTION: Developing mode")
-			mdcass.Download(MDC_SERVER_DEV, MDC_SERVER_PANDOC, VERSION, VERNAME, CONFVER, pandoc_bin)
-		} else {
-			mdcass.Download(MDC_SERVER_DEFAULT, MDC_SERVER_PANDOC, VERSION, VERNAME, CONFVER, pandoc_bin)
+		switch *server {
+		case "default":
+			conf, err := mdcass.FetchConf(MDC_SERVER_DEFAULT, VERNAME, CONFVER)
+			if err != nil {
+				println("!! Failed to fetch configuration files")
+			}
+			err = mdcass.Write2File(mdc_localconf, conf)
+			if err != nil {
+				println("!! Failed to save configuration file:", mdc_localconf)
+			}
+		case "acc":
+			println(">> ATTENTION: Accelerated server may not have latest files")
+			_ver := strings.Split(VERSION, ".")
+			_ver = _ver[:2]
+			ver := strings.Join(_ver, ".")
+			conf, err := mdcass.FetchConf(MDC_SERVER_ACC+"@"+ver, VERNAME, CONFVER)
+			if err != nil {
+				println("!! Failed to fetch configuration files")
+			}
+			err = mdcass.Write2File(mdc_localconf, conf)
+			if err != nil {
+				println("!! Failed to save configuration file:", mdc_localconf)
+			}
+		case "dev":
+			println(">> ATTENTION: Developing server")
+			println(">> ATTENTION: Developing server")
+			conf, err := mdcass.FetchConf(MDC_SERVER_DEV, VERNAME, CONFVER)
+			if err != nil {
+				println("!! Failed to fetch configuration files")
+			}
+			err = mdcass.Write2File(mdc_localconf, conf)
+			if err != nil {
+				println("!! Failed to save configuration file:", mdc_localconf)
+			}
+		default:
+			println("!! ERROR: Non-registered server")
 		}
 	default:
 		// generate filepath
@@ -174,58 +222,21 @@ func main() {
 				os.Exit(7)
 			}
 		default:
-			help()
+			// help()
 		}
 	}
 	os.Exit(0)
 
 }
 
-func help() {
-	println("MDC version: ", VERSION)
-	helptext := `Manual for Markdown Converter
-
-mdc <COMMAND> [filepath] [-t <template>] [-o <filename>]
-
-[COMMAND]
-	pdf
-		Convert markdown file to PDF.
-	docx | doc | word
-		Convert markdown file to word (.docx).
-	help
-		Show help document.
-	builtin
-		Show built-in information.
-	download [Download Flags]
-		Download pandoc binary from the Internet.
-
-[Flags]
-	-t <template> !!NOT SUPPORT!!
-		Word output only. Generate .docx with a specific 
-		template. Choose a template .docx file path or online 
-		reference file name.
-
-[Download Flags]
-	-m [official mirror site name]
-		Specify a mirror site name for downloading pandoc 
-		binary.
-		If put the mirror site empty, mdc will download from 
-		a default built-in mirror site. ONLY official mirror
-		site name is accept. e.g. default
-	-cm [customized mirror site]
-		Specify a mirror site for downloading pandoc binary.
-		e.g. https://mirror.mdc.sample.com
-`
-	fmt.Println(helptext)
-}
-
 func builtin() {
 	println()
 	println("======================== Built-in Information ========================")
-	println("MDC Version: ", VERSION)
-	println("MDC Vername: ", VERNAME)
-	println("MDC Server : ", MDC_SERVER_DEFAULT)
-	println("MDC PANDOC : ", MDC_SERVER_PANDOC)
+	println("MDC Version    : ", VERSION)
+	println("MDC Vername    : ", VERNAME)
+	println("MDC Server     : ", MDC_SERVER_DEFAULT)
+	println("MDC Server ACC : ", MDC_SERVER_ACC)
+	println("MDC Server DEV : ", MDC_SERVER_DEV)
 	// println("Mirrors: ")
 	// for k, v := range MDC_SERVERS {
 	// 	println("    ", k, ":", v)

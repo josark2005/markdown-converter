@@ -7,39 +7,9 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"runtime"
 
 	"github.com/tidwall/gjson"
 )
-
-/**
- * @Funcion Download
- * @param server Server URL for fetching MDC server configurations
- * @param pandoc Pandoc binary filename
- * @param version Current MDC version
- * @param vername Current MDC version name
- * @param confver Current MDC accepted server configration file version
- * @param dfilepath The location to save the file
- */
-func Download(server string, pandoc string, version string, vername string, confver int, dfilepath string) {
-	conf, err := fetchConf(server+"/deck.json", vername, confver)
-	if err != nil {
-		println(err.Error())
-	}
-	// read download url
-	var osname string
-	switch runtime.GOOS {
-	case "windows":
-		osname = "win"
-	case "linux":
-		osname = "linux"
-	case "darwin":
-		osname = "darwin"
-	}
-	filename := gjson.Get(string(conf), "pandoc"+"."+vername+"."+osname)
-	url := pandoc + "/" + filename.String()
-	fetchBig(url, filepath.Dir(dfilepath)+"/"+filename.String(), true)
-}
 
 /**
  * @Function fetchConf
@@ -48,7 +18,8 @@ func Download(server string, pandoc string, version string, vername string, conf
  * @param confver Current MDC accepted server configration file version
  */
 
-func fetchConf(server string, vername string, confver int) ([]byte, error) {
+func FetchConf(server string, vername string, confver int) ([]byte, error) {
+	server += "/" + vername + ".json"
 	println("-> Fetching from ", server)
 	resp, err := http.Get(server)
 	if err != nil {
@@ -72,10 +43,19 @@ func fetchConf(server string, vername string, confver int) ([]byte, error) {
 			os.Exit(1)
 		}
 		return body, nil
+	} else if resp.StatusCode == 404 {
+		println("!! Error: 404 not found.")
+		os.Exit(8)
+		return nil, err
 	} else {
 		return nil, err
 	}
+}
 
+// Write
+func Write2File(filepath string, data []byte) error {
+	err := os.WriteFile(filepath, data, 0644)
+	return err
 }
 
 // Download counter
