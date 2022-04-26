@@ -79,8 +79,17 @@ func init() {
 }
 
 func md2html(md string) string {
-	println("Running: ", pandoc_bin, "-f markdown -t html", md)
-	output, err := exec.Command(pandoc_bin, "-f", "markdown", "-t", "html", md).Output()
+	args := []string{
+		"-f",
+		"markdown",
+		"-t",
+		"html",
+		md,
+	}
+	showArgs := []string{"Running:", "pandoc"}
+	showArgs = append(showArgs, args...)
+	println(strings.Join(showArgs, " "))
+	output, err := exec.Command(pandoc_bin, args...).Output()
 	if err != nil {
 		fmt.Println("!! Convert failed: ", err)
 	}
@@ -104,7 +113,18 @@ func md2html_w(mdfilepath string, filename string, perm fs.FileMode) error {
 }
 
 func html2docx_w(html string, filename string) error {
-	println("Running: ", pandoc_bin, "-f html -t docx", html, "-o", filename)
+	args := []string{
+		"-f",
+		"markdown",
+		"-t",
+		"docx",
+		html,
+		"-o",
+		filename,
+	}
+	showArgs := []string{"Running:", "pandoc"}
+	showArgs = append(showArgs, args...)
+	println(strings.Join(showArgs, " "))
 	_, err := exec.Command(pandoc_bin, "-f", "markdown", "-t", "docx", html, "-o", filename).Output()
 	if err != nil {
 		fmt.Println("!! Convert failed: ", err)
@@ -117,7 +137,7 @@ func main() {
 
 	// at least one param should be given
 	if len(args) < 2 {
-		println("!! Missing arguments")
+		help()
 		os.Exit(0)
 	}
 
@@ -171,6 +191,11 @@ func main() {
 			println("!! ERROR: Non-registered server")
 		}
 	default:
+		if len(args) < 3 {
+			help()
+			os.Exit(0)
+		}
+
 		// generate filepath
 		mdfilepath, _ := filepath.Abs(args[2])
 		mdfilename := filepath.Base(mdfilepath)
@@ -228,4 +253,20 @@ func builtin() {
 	// for k, v := range MDC_SERVERS {
 	// 	println("    ", k, ":", v)
 	// }
+}
+
+func help() {
+	h := `Markdown Converter Help
+Usage: mdc <command>
+
+command options:
+	builtin
+		Show builtin infomation.
+	update
+		Download the latest configuration for current version.
+	html
+		Convert markdown to html.
+	<word|doc|docx>
+		Convert markdown to docx.`
+	println(h)
 }
