@@ -2,6 +2,13 @@
     "conf_ver": 1,
     "vername": "deck",
     "template": {
-        
+        "default": {
+            "html": {
+                "default": "light",
+                "auto": "github-markdown.css",
+                "dark": "github-markdown-light.css",
+                "light": "github-markdown-dark.css"
+            }
+        }
     }
 }
