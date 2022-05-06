@@ -64,7 +64,7 @@ func init() {
 	localdir, err := os.Stat(mdc_dir)
 	if err != nil || !localdir.IsDir() {
 		println("!! MDC DIR is unreachable. Try to create", mdc_dir)
-		err := os.Mkdir(mdc_dir, 0644)
+		err := os.Mkdir(mdc_dir, 0744)
 		if err != nil {
 			println("!! Failed to create directory", mdc_dir)
 		}
