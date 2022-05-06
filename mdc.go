@@ -43,6 +43,7 @@ var mdc_conf []byte
 
 // Initializaion
 func init() {
+	// define pandoc binary
 	pandoc_bin = "pandoc"
 	userhomedir, _ := os.UserHomeDir()
 	mdc_dir, _ = filepath.Abs(userhomedir + "/.mdc")
